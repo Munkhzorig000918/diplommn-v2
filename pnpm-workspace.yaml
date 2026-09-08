@@ -1,0 +1,10 @@
+packages:
+  - "apps/*"
+  - "packages/*"
+allowBuilds:
+  esbuild: true
+  "@node-rs/argon2": true
+  "@tailwindcss/oxide": true
+  sharp: true
+  unrs-resolver: true
+  msgpackr-extract: true

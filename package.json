@@ -1,0 +1,21 @@
+{
+  "name": "diplommn-v2",
+  "private": true,
+  "version": "0.1.0",
+  "description": "diplom.mn v2 — digital diploma and certificate verification platform (MVP core)",
+  "engines": {
+    "node": ">=22"
+  },
+  "packageManager": "pnpm@11.1.2",
+  "scripts": {
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck",
+    "test": "pnpm -r test",
+    "dev:api": "pnpm --filter @diplommn/api dev",
+    "dev:web": "pnpm --filter @diplommn/web dev",
+    "dev:worker": "pnpm --filter @diplommn/worker dev",
+    "db:generate": "pnpm --filter @diplommn/db generate",
+    "db:migrate": "pnpm --filter @diplommn/db migrate",
+    "db:seed": "pnpm --filter @diplommn/db seed"
+  }
+}
