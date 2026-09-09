@@ -4,5 +4,5 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["hardhat.config.ts", "src", "test", "scripts", "artifacts"]
+  "include": ["src", "test"]
 }

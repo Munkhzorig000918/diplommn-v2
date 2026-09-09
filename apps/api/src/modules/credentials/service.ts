@@ -191,6 +191,8 @@ async function issueWithinTransaction(
       contentHashAlg: alg,
       canonicalization,
       issuedAt: new Date(),
+      // Eligible for the next daily Merkle anchor batch (Phase 1).
+      anchorStatus: "AWAITING_BATCH",
     },
     auditDetails: { certificateId },
   });

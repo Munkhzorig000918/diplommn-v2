@@ -20,6 +20,8 @@ and the invariants every change must respect.
 | `packages/shared` | `@diplommn/shared` | Status enums, certificate-ID utils, canonical hashing, error taxonomy |
 | `packages/contracts` | `@diplommn/contracts` | Solidity AnchorRegistry (daily Merkle root anchor, Phase 0) — Hardhat 3 + viem |
 | `packages/did` | `@diplommn/did` | `did:web:diplom.mn` document builder, Multikey encoding, issuer key history (Phase 0) |
+| `packages/hemis` | `@diplommn/hemis` | HEMIS adapter — v1-evidenced API client, claim matching, validation evidence (Phase 1) |
+| `packages/vc` | `@diplommn/vc` | W3C VC 2.0 — diploma claim schema 1.0, DataIntegrityProof (ecdsa-jcs-2019) sign/verify (Phase 1) |
 
 ## Getting started
 
@@ -66,6 +68,29 @@ pnpm --filter @diplommn/did generate:dev   # dev P-256 key + did.json in package
 
 In production, publish the generated document at
 `https://diplom.mn/.well-known/did.json` alongside the key-history file.
+
+## Phase 1 (in progress)
+
+- **Anchoring**: the worker runs a daily job (00:05 Asia/Ulaanbaatar) that
+  Merkle-batches the closed day's salted content hashes and anchors the root
+  in AnchorRegistry (`ANCHOR_*` env; disabled when unset). Batch ids are
+  YYYYMMDD of the closed UB day (open decision #11's suggestion). Idempotent:
+  an on-chain root is never overwritten; a divergent root dead-letters as a
+  critical integrity event.
+- **VC signing**: after issuance the worker builds the diploma VC (claim
+  schema 1.0 — no registration number, no GPA, no system state in signed
+  claims), allocates its Bitstring Status List slot from day one, signs with
+  DataIntegrityProof/ecdsa-jcs-2019 under `did:web:diplom.mn` and stores the
+  VC on the credential. Dev signs with the local P-256 JWK
+  (`VC_SIGNING_KEY_FILE`); production replaces the signer with KMS/HSM on an
+  isolated host. JCS suite chosen so the open verifier needs no JSON-LD.
+- **HEMIS**: `POST /api/v1/credentials/:id/validate-source` fetches the
+  authoritative record (bearer endpoint, Basic fallback — the v1-proven
+  contract against hub.esis.edu.mn), matches on degree number / registration
+  number / first name, stores raw evidence as a credential event and sets the
+  source-validation status. D1 HMAC attestation is a pluggable hook awaiting
+  the HEMIS-side contract (gap #6). v1's leaked credentials must be
+  re-provisioned — see `.env.example`.
 
 ## Security posture (MVP)
 

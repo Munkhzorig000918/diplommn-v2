@@ -20,6 +20,13 @@ import {
   Role,
 } from "@diplommn/shared";
 import {
+  buildValidationEvidence,
+  matchAgainstHemis,
+  toSourceValidationStatus,
+  type HemisClient,
+  type HemisMatchResult,
+} from "@diplommn/hemis";
+import {
   requireInstitutionScope,
   requireRole,
   requireUser,
@@ -74,6 +81,7 @@ export function registerCredentialRoutes(
   app: FastifyInstance,
   db: Db,
   queues: import("../../queues.js").JobQueues | null,
+  hemis: HemisClient | null = null,
 ): void {
   /** Enqueue after commit; failure is recoverable via ops, never blocks issuance. */
   async function enqueueArtifacts(
@@ -87,6 +95,14 @@ export function registerCredentialRoutes(
       request.log.error(
         { err, credentialId },
         "failed to enqueue artifact job (recover via ops regenerate)",
+      );
+    }
+    try {
+      await queues.enqueueSignVc(credentialId);
+    } catch (err) {
+      request.log.error(
+        { err, credentialId },
+        "failed to enqueue VC signing job (idempotent — re-enqueue via ops)",
       );
     }
   }
@@ -391,6 +407,94 @@ export function registerCredentialRoutes(
     const user = requireInstitutionScope(request, credential.institutionId, Role.Operator);
     await cancelCredential(db, id, workflowActor(request, user.id));
     return { ok: true };
+  });
+
+  /**
+   * Source validation against HEMIS (architecture §12). Operator-triggered;
+   * stores the fetch + match evidence as a credential event for the
+   * approver's evidence panel. Mismatch/not-found block approval by default
+   * (open decision #9); UNAVAILABLE is an outage, never presented as fraud.
+   */
+  app.post("/api/v1/credentials/:id/validate-source", async (request) => {
+    const { id } = IdParams.parse(request.params);
+    const loaded = await mustLoad(db, id);
+    const user = requireInstitutionScope(request, loaded.institutionId, Role.Operator);
+    if (!hemis) {
+      throw AppError.conflict("HEMIS integration is not configured");
+    }
+
+    const [row] = await db
+      .select({
+        lifecycleStatus: credentials.lifecycleStatus,
+        credentialNumber: credentials.credentialNumber,
+        sourceValidationStatus: credentials.sourceValidationStatus,
+        holderFirstName: holders.firstName,
+        holderRegistrationNumber: holders.registrationNumber,
+      })
+      .from(credentials)
+      .innerJoin(holders, eq(credentials.holderId, holders.id))
+      .where(eq(credentials.id, id))
+      .limit(1);
+    if (!row) throw AppError.notFound("Credential not found");
+    if (!["DRAFT", "PENDING_APPROVAL", "RETURNED"].includes(row.lifecycleStatus)) {
+      throw AppError.conflict(
+        "Source validation only applies before issuance",
+      );
+    }
+    const degreeNumber = row.credentialNumber;
+    if (!degreeNumber) {
+      throw AppError.validation(
+        "Credential has no credential number (HEMIS degree number)",
+      );
+    }
+
+    await db
+      .update(credentials)
+      .set({ sourceValidationStatus: "CHECKING", updatedAt: new Date() })
+      .where(eq(credentials.id, id));
+
+    const fetchResult = await hemis.fetchDiploma(degreeNumber);
+    let match: HemisMatchResult | null = null;
+    if (fetchResult.status === "found") {
+      match = matchAgainstHemis(fetchResult.record, {
+        degreeNumber,
+        primaryIdentifierNumber: row.holderRegistrationNumber,
+        firstName: row.holderFirstName,
+      });
+    }
+    const status = toSourceValidationStatus(fetchResult, match);
+    const evidence = buildValidationEvidence(degreeNumber, fetchResult, match);
+
+    await db.transaction(async (tx) => {
+      await tx
+        .update(credentials)
+        .set({ sourceValidationStatus: status, updatedAt: new Date() })
+        .where(eq(credentials.id, id));
+      await tx.insert(credentialEvents).values({
+        credentialId: id,
+        eventType: "source-validation",
+        toStatus: status,
+        actorUserId: user.id,
+        details: evidence,
+      });
+      await appendAuditEvent(tx, {
+        actorType: "USER",
+        actorUserId: user.id,
+        action: AuditAction.CredentialSourceValidated,
+        resourceType: AuditResource.Credential,
+        resourceId: id,
+        result:
+          status === "MATCHED" ? AuditResult.Success : AuditResult.Failure,
+        correlationId: request.id,
+        details: { degreeNumber, status, outcome: fetchResult.status },
+      });
+    });
+
+    return {
+      status,
+      outcome: fetchResult.status,
+      ...(match ? { match } : {}),
+    };
   });
 
   /** Retry issuance for APPROVED credentials whose issuance step failed. */

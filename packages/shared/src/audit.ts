@@ -20,6 +20,7 @@ export const AuditAction = {
   CredentialReturned: "credential.returned",
   CredentialRejected: "credential.rejected",
   CredentialIssued: "credential.issued",
+  CredentialSourceValidated: "credential.source.validated",
   CredentialCancelled: "credential.cancelled",
   // lifecycle cases
   LifecycleCaseCreated: "lifecycle.case.created",

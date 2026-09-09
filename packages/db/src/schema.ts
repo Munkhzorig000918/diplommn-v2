@@ -67,6 +67,14 @@ export const anchorStatusEnum = pgEnum("anchor_status", [
   "REANCHORED",
 ]);
 
+/** Batch-level submission state; per-credential anchor_status stays separate. */
+export const anchorBatchStatusEnum = pgEnum("anchor_batch_status", [
+  "PENDING",
+  "SUBMITTED",
+  "CONFIRMED",
+  "FAILED",
+]);
+
 export const credentialKindEnum = pgEnum("credential_kind", [
   "DIPLOMA",
   "CERTIFICATE",
@@ -311,6 +319,7 @@ export const credentials = pgTable(
     anchorStatus: anchorStatusEnum("anchor_status")
       .notNull()
       .default("NOT_ELIGIBLE"),
+    anchorBatchId: uuid("anchor_batch_id").references(() => anchorBatches.id),
 
     // Salted content hash — computed at issuance (Phase-2 anchoring input).
     // Salt is confidential: never exposed via API/UI/logs.
@@ -322,6 +331,14 @@ export const credentials = pgTable(
     // PDF artifact (worker milestone) + integrity checksum.
     pdfObjectKey: text("pdf_object_key"),
     pdfSha256: text("pdf_sha256"),
+
+    // Signed W3C VC (Phase 1). Written once by the signing job; never
+    // updated — corrections issue a replacement credential.
+    vc: jsonb("vc"),
+    vcSignedAt: timestamp("vc_signed_at", { withTimezone: true }),
+    vcKeyId: text("vc_key_id"),
+    // Bitstring Status List slot, allocated at signing (sequence-backed).
+    statusListIndex: integer("status_list_index"),
 
     issuedAt: timestamp("issued_at", { withTimezone: true }),
     supersededById: uuid("superseded_by_id"),
@@ -343,6 +360,7 @@ export const credentials = pgTable(
   },
   (t) => [
     uniqueIndex("credentials_certificate_id_uq").on(t.certificateId),
+    uniqueIndex("credentials_status_list_index_uq").on(t.statusListIndex),
     index("credentials_holder_idx").on(t.holderId),
     index("credentials_institution_idx").on(t.institutionId),
     index("credentials_lifecycle_idx").on(t.lifecycleStatus),
@@ -573,4 +591,43 @@ export const otpChallenges = pgTable(
       .defaultNow(),
   },
   (t) => [index("otp_challenges_holder_idx").on(t.holderId)],
+);
+
+/**
+ * Daily anchor batches (architecture §4/§8): one Merkle root over the day's
+ * salted content hashes, one Ethereum transaction. DB tx ≠ chain tx — batch
+ * rows are created first, then submitted asynchronously with idempotent
+ * retries. `leaves` keeps the full sorted leaf set so Merkle proofs can be
+ * recomputed for any member credential at verification time.
+ */
+export const anchorBatches = pgTable(
+  "anchor_batches",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    // On-chain batch id (uint256). Numbering policy lives off-chain: YYYYMMDD
+    // of the closed issuance day in Asia/Ulaanbaatar (gap #11 suggestion).
+    batchId: bigint("batch_id", { mode: "bigint" }).notNull(),
+    merkleRoot: text("merkle_root").notNull(),
+    leafCount: integer("leaf_count").notNull(),
+    leaves: jsonb("leaves").notNull(),
+    status: anchorBatchStatusEnum("status").notNull().default("PENDING"),
+    chainId: integer("chain_id").notNull(),
+    contractAddress: text("contract_address").notNull(),
+    txHash: text("tx_hash"),
+    blockNumber: bigint("block_number", { mode: "bigint" }),
+    attempts: integer("attempts").notNull().default(0),
+    lastError: text("last_error"),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    confirmedAt: timestamp("confirmed_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true })
+      .notNull()
+      .defaultNow(),
+  },
+  (t) => [
+    uniqueIndex("anchor_batches_batch_id_uq").on(t.batchId),
+    index("anchor_batches_status_idx").on(t.status),
+  ],
 );

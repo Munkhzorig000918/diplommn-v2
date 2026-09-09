@@ -15,6 +15,20 @@
       "when": 1788869849473,
       "tag": "0001_glossy_hydra",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1788936452205,
+      "tag": "0002_little_firebird",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1788942627584,
+      "tag": "0003_sudden_typhoid_mary",
+      "breakpoints": true
     }
   ]
 }

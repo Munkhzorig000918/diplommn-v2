@@ -21,10 +21,14 @@ export const KeyStatus = {
 } as const;
 export type KeyStatus = (typeof KeyStatus)[keyof typeof KeyStatus];
 
-/** Data Integrity cryptosuite per key type (crypto-agility field). */
+/**
+ * Data Integrity cryptosuite per key type (crypto-agility field). JCS
+ * variants — the open verifier must work with plain deterministic JSON,
+ * no JSON-LD/RDF machinery.
+ */
 export const Cryptosuite = {
-  Ed25519: "eddsa-rdfc-2022",
-  "P-256": "ecdsa-rdfc-2019",
+  Ed25519: "eddsa-jcs-2022",
+  "P-256": "ecdsa-jcs-2019",
 } as const satisfies Record<SupportedKeyType, string>;
 export type Cryptosuite = (typeof Cryptosuite)[keyof typeof Cryptosuite];
 

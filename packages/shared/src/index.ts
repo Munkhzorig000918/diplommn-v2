@@ -7,3 +7,4 @@ export * from "./errors.js";
 export * from "./audit.js";
 export * from "./masking.js";
 export * from "./queues.js";
+export * from "./merkle.js";

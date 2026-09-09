@@ -10,17 +10,21 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@diplommn/contracts": "workspace:*",
     "@diplommn/db": "workspace:*",
+    "@diplommn/did": "workspace:*",
     "@diplommn/notify": "workspace:*",
     "@diplommn/shared": "workspace:*",
     "@diplommn/storage": "workspace:*",
+    "@diplommn/vc": "workspace:*",
     "bullmq": "^6.3.4",
     "dotenv": "^17.4.2",
     "drizzle-orm": "^0.45.2",
     "ioredis": "^6.0.0",
     "pdfkit": "^0.20.2",
     "pg": "^8.23.0",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "viem": "^2.56.0"
   },
   "devDependencies": {
     "@types/node": "^26.4.1",

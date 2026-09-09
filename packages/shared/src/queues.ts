@@ -5,9 +5,17 @@
  */
 export const QUEUE_ARTIFACTS = "artifacts";
 export const QUEUE_NOTIFICATIONS = "notifications";
+export const QUEUE_ANCHORS = "anchors";
+export const QUEUE_SIGNING = "signing";
 
 export const JOB_GENERATE_PDF = "generate-pdf";
 export const JOB_NOTIFY_ISSUED = "notify-issued";
+export const JOB_ANCHOR_BATCH = "anchor-batch";
+export const JOB_SIGN_VC = "sign-vc";
+
+export interface SignVcJobData {
+  credentialId: string;
+}
 
 export interface GeneratePdfJobData {
   credentialId: string;
@@ -15,6 +23,15 @@ export interface GeneratePdfJobData {
 
 export interface NotifyIssuedJobData {
   credentialId: string;
+}
+
+export interface AnchorBatchJobData {
+  /**
+   * Issuance day to anchor as "YYYY-MM-DD" (Asia/Ulaanbaatar calendar).
+   * Omitted on the daily scheduled run — the worker anchors the day that
+   * just closed. Set explicitly for ops-console retries/backfills.
+   */
+  batchDate?: string;
 }
 
 export const DEFAULT_JOB_OPTIONS = {

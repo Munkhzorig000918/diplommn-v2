@@ -22,6 +22,7 @@ import { registerImportRoutes } from "./modules/imports/routes.js";
 import { registerReferenceRoutes } from "./modules/reference/routes.js";
 import { registerFileRoutes } from "./modules/files/routes.js";
 import { registerOpsRoutes } from "./modules/ops/routes.js";
+import { HemisClient, hemisClientConfigFromEnv } from "@diplommn/hemis";
 import { createNotifier } from "@diplommn/notify";
 import { createStorage, type Storage } from "@diplommn/storage";
 import type { JobQueues } from "./queues.js";
@@ -81,7 +82,9 @@ export async function buildServer(
 
   registerAuthRoutes(app, db, config);
   registerUserRoutes(app, db);
-  registerCredentialRoutes(app, db, queues);
+  const hemisConfig = hemisClientConfigFromEnv(process.env);
+  const hemis = hemisConfig ? new HemisClient(hemisConfig) : null;
+  registerCredentialRoutes(app, db, queues, hemis);
   registerLifecycleRoutes(app, db);
   registerVerifyRoutes(app, db, config);
   registerAuditRoutes(app, db);
