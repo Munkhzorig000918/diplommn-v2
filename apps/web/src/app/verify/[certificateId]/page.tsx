@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { TechnicalPanel, type TechnicalInfo } from "../components";
 
 /**
  * VER-003 — public verification result. Server-rendered, never indexed
@@ -28,6 +29,7 @@ interface VerifyResponse {
     publicClaims: Record<string, unknown>;
   };
   checks?: { check: string; status: string; description: string }[];
+  technical?: TechnicalInfo | null;
 }
 
 const RESULT_UI = {
@@ -193,6 +195,8 @@ export default async function VerifyResultPage({
           ))}
         </section>
       )}
+
+      {data.technical && <TechnicalPanel technical={data.technical} />}
 
       <p className="privacy-note">
         Хувийн мэдээлэл нээлттэй сүлжээнд хадгалагдаагүй бөгөөд энэ хуудсанд

@@ -11,10 +11,13 @@
   },
   "dependencies": {
     "@diplommn/db": "workspace:*",
+    "@diplommn/did": "workspace:*",
     "@diplommn/hemis": "workspace:*",
     "@diplommn/notify": "workspace:*",
     "@diplommn/shared": "workspace:*",
     "@diplommn/storage": "workspace:*",
+    "@diplommn/vc": "workspace:*",
+    "@diplommn/verifier": "workspace:*",
     "@fastify/cookie": "^11.1.2",
     "@fastify/cors": "^11.3.0",
     "@fastify/multipart": "^10.1.1",

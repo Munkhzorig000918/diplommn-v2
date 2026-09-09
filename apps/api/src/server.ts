@@ -13,6 +13,7 @@ import { registerUserRoutes } from "./modules/users/routes.js";
 import { registerCredentialRoutes } from "./modules/credentials/routes.js";
 import { registerLifecycleRoutes } from "./modules/lifecycle/routes.js";
 import { registerVerifyRoutes } from "./modules/verify/routes.js";
+import { loadLocalDidDocument, registerDidRoutes } from "./modules/did/routes.js";
 import { registerAuditRoutes } from "./modules/audit/routes.js";
 import {
   registerHolderRoutes,
@@ -86,7 +87,9 @@ export async function buildServer(
   const hemis = hemisConfig ? new HemisClient(hemisConfig) : null;
   registerCredentialRoutes(app, db, queues, hemis);
   registerLifecycleRoutes(app, db, queues);
-  registerVerifyRoutes(app, db, config);
+  const localDidDocument = loadLocalDidDocument(config, app.log);
+  registerDidRoutes(app, localDidDocument);
+  registerVerifyRoutes(app, db, config, localDidDocument);
   registerAuditRoutes(app, db);
   registerHolderRoutes(app, db, config, otpDelivery);
   registerImportRoutes(app, db);

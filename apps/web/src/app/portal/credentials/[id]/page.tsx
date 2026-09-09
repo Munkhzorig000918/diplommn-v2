@@ -63,7 +63,7 @@ export default function HolderCredentialPage() {
           errorCorrectionLevel: "M",
           margin: 2,
           width: 240,
-          color: { dark: "#17202b", light: "#ffffff" },
+          color: { dark: "#101828", light: "#ffffff" },
         }),
       );
       reload();

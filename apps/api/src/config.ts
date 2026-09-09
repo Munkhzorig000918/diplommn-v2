@@ -20,6 +20,13 @@ const EnvSchema = z.object({
   PUBLIC_HOLDER_NAME_DISCLOSURE: z
     .enum(["masked", "full", "none"])
     .default("masked"),
+  // Issuer DID surface (Phase 2): key history drives /.well-known/did.json
+  // and local resolution inside the verify-bundle endpoint.
+  DID_KEY_HISTORY_FILE: z.string().optional(),
+  VC_ISSUER_DOMAIN: z.string().default("diplom.mn"),
+  VC_ISSUER_DID: z.string().default("did:web:diplom.mn"),
+  // Read-only RPC for the public verifier's anchored-root check.
+  ANCHOR_RPC_URL: z.string().optional(),
 });
 
 export type ApiConfig = z.infer<typeof EnvSchema>;

@@ -13,6 +13,9 @@ importers:
       '@diplommn/db':
         specifier: workspace:*
         version: link:../../packages/db
+      '@diplommn/did':
+        specifier: workspace:*
+        version: link:../../packages/did
       '@diplommn/hemis':
         specifier: workspace:*
         version: link:../../packages/hemis
@@ -25,6 +28,12 @@ importers:
       '@diplommn/storage':
         specifier: workspace:*
         version: link:../../packages/storage
+      '@diplommn/vc':
+        specifier: workspace:*
+        version: link:../../packages/vc
+      '@diplommn/verifier':
+        specifier: workspace:*
+        version: link:../../packages/verifier
       '@fastify/cookie':
         specifier: ^11.1.2
         version: 11.1.2

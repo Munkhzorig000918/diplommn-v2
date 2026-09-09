@@ -1,20 +1,22 @@
-/* diplom.mn v2 design tokens — D2V2 §25 (direction B, "modern digital government") */
+/* diplom.mn v2 design tokens — Figma "Astra" Foundation (authoritative;
+   supersedes the earlier D2V2 PDF values). Values marked "derived" have no
+   explicit Figma token yet — confirm against Astra before hardening. */
 :root {
-  --color-primary: #174e8c;
-  --color-primary-hover: #123f73;
-  --color-primary-active: #0d315a;
-  --color-primary-subtle: #eaf2fb;
-  --color-background: #f6f8fb;
+  --color-primary: #155eef;
+  --color-primary-hover: #0543ce; /* Figma color/hover */
+  --color-primary-active: #043bb5; /* derived: one step past hover */
+  --color-primary-subtle: #eff4ff; /* derived: primary-family wash */
+  --color-background: #f8fafc; /* Astra canvas */
   --color-surface: #ffffff;
-  --color-surface-secondary: #eef2f6;
-  --color-surface-inverse: #142235;
-  --color-text-primary: #17202b;
-  --color-text-secondary: #4e5d6c;
-  --color-text-disabled: #7a8795;
+  --color-surface-secondary: #f1f5f9; /* derived: canvas family, table headers */
+  --color-surface-inverse: #0b1f44; /* Astra navy — header/footer */
+  --color-text-primary: #101828; /* Astra heading */
+  --color-text-secondary: #475467; /* Astra body */
+  --color-text-disabled: #667085; /* Astra muted */
   --color-text-inverse: #ffffff;
-  --color-border: #c8d1dc;
-  --color-divider: #e2e7ed;
-  --color-focus: #0b6fd3;
+  --color-border: #e3e8f0; /* Astra border (single border token) */
+  --color-divider: #e3e8f0;
+  --color-focus: #155eef; /* 3px ring per Astra geometry */
   --color-success: #167647;
   --color-success-bg: #e8f5ee;
   --color-warning: #8a4b08;
@@ -24,8 +26,8 @@
   --color-error-bg: #fdecea;
   --color-info: #0b63a5;
   --color-info-bg: #e7f2fa;
-  --color-neutral: #5b6875;
-  --color-neutral-bg: #eef1f4;
+  --color-neutral: #667085;
+  --color-neutral-bg: #f1f5f9;
 
   --space-1: 4px;
   --space-2: 8px;
@@ -35,6 +37,8 @@
   --space-6: 24px;
   --space-8: 32px;
   --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
 
   --radius-sm: 4px;
   --radius-md: 8px;
@@ -81,7 +85,7 @@ a {
 }
 .site-header .tagline {
   font-size: 13px;
-  color: #b9c5d4;
+  color: rgba(255, 255, 255, 0.72); /* muted on Astra navy */
   margin-top: 2px;
 }
 
@@ -377,3 +381,112 @@ h1 {
 
 .mono { font-family: var(--font-mono), ui-monospace, monospace; }
 .muted { color: var(--color-text-secondary); font-size: 13px; }
+
+/* ---- VER screens (Astra): method cards, progress, technical proof ---- */
+.method-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+.method-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: var(--space-2);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-5) var(--space-3);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  min-height: 44px;
+}
+.method-card:hover { border-color: var(--color-primary); }
+.method-selected {
+  border: 2px solid var(--color-primary);
+  background: var(--color-primary-subtle);
+}
+.method-icon {
+  font-size: 22px;
+  color: var(--color-primary);
+}
+.method-title { font-weight: 600; font-size: 14px; }
+.method-hint { font-size: 12px; color: var(--color-text-secondary); }
+
+.progress-steps { list-style: none; }
+.progress-steps li {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) 0;
+  color: var(--color-text-secondary);
+}
+.progress-steps .step-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 999px;
+  background: var(--color-border);
+  flex-shrink: 0;
+}
+.progress-steps .step-done { color: var(--color-success); }
+.progress-steps .step-done .step-dot { background: var(--color-success); }
+.progress-steps .step-active { color: var(--color-text-primary); font-weight: 600; }
+.progress-steps .step-active .step-dot {
+  background: var(--color-primary);
+  animation: step-pulse 1s ease-in-out infinite;
+}
+@keyframes step-pulse {
+  50% { opacity: 0.4; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .progress-steps .step-active .step-dot { animation: none; }
+}
+
+.check-pending { color: var(--color-info); font-weight: 600; }
+.check-unavailable { color: var(--color-warning); font-weight: 600; }
+.check-skipped { color: var(--color-text-disabled); font-weight: 600; }
+.check-outcome { font-weight: 400; color: var(--color-text-secondary); }
+.check-details {
+  margin-top: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  background: var(--color-surface-secondary);
+  border-radius: var(--radius-sm);
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  list-style-position: inside;
+}
+
+.tech-title { font-size: 16px; margin-bottom: var(--space-4); }
+.tech-list { display: grid; gap: var(--space-2); }
+.tech-row {
+  display: grid;
+  grid-template-columns: minmax(140px, 220px) 1fr;
+  gap: var(--space-4);
+  font-size: 13px;
+  padding: var(--space-1) 0;
+}
+.tech-row dt { color: var(--color-text-secondary); }
+.tech-row dd { word-break: break-all; }
+@media (max-width: 599px) {
+  .tech-row { grid-template-columns: 1fr; gap: 2px; }
+}
+
+.vc-textarea {
+  width: 100%;
+  font-size: 13px;
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  resize: vertical;
+}
+.file-input { display: block; margin: var(--space-2) 0; }
+.qr-frame video {
+  width: 100%;
+  max-width: 480px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  background: #000;
+}
