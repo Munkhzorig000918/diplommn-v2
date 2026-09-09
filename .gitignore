@@ -12,3 +12,5 @@ docker/data/
 minio-data/
 CLAUDE.md
 AGENTS.md
+secrets/
+.env.production

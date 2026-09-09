@@ -38,6 +38,15 @@ pnpm dev:web                    # http://localhost:3000
 
 Run tests: `pnpm test` · Typecheck: `pnpm typecheck`
 
+## Deployment
+
+Production runs under docker compose (no Kubernetes at this load): see
+`docs/deployment.md` for the full runbook — `Dockerfile` (api/worker/web
+targets), `docker-compose.prod.yml`, nginx/TLS config, secrets layout,
+backups and the NDC hardening checklist. PII-bearing services must be
+hosted in Mongolia (NDC + domestic DR); only the stateless public tier may
+use CDN/AWS.
+
 ## Contracts (Phase 0)
 
 ```bash
