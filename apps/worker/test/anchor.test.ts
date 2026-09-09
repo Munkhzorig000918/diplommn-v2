@@ -171,10 +171,10 @@ describe("anchor batch job (integration)", () => {
     const result = await runAnchorBatch(db, chain, { now, batchDate });
     expect(result.outcome).toBe("confirmed");
     if (result.outcome !== "confirmed") throw new Error("unreachable");
-    expect(result.leafCount).toBe(2);
-    expect(result.merkleRoot).toBe(
-      computeMerkleRoot([a.contentHash, b.contentHash]),
-    );
+    // Two credential leaves + (when the audit log is non-empty) the audit
+    // chain head — the log is the anchoring basis (architecture §8).
+    expect(result.leafCount).toBeGreaterThanOrEqual(2);
+    expect(result.leafCount).toBeLessThanOrEqual(3);
     expect(anchored.get(result.batchId)).toBe(result.merkleRoot);
 
     const rows = await db
@@ -193,7 +193,13 @@ describe("anchor batch job (integration)", () => {
       .where(eq(anchorBatches.id, rows[0]!.anchorBatchId!));
     expect(batch?.status).toBe("CONFIRMED");
     expect(batch?.blockNumber).toBe(123n);
-    expect(batch?.leafCount).toBe(2);
+    // Both credential leaves are in the batch and the root recomputes from
+    // the stored leaf set (which may also carry the audit-chain head).
+    const leaves = batch!.leaves as string[];
+    expect(leaves).toContain(normalizeLeafHex(a.contentHash));
+    expect(leaves).toContain(normalizeLeafHex(b.contentHash));
+    expect(batch!.leafCount).toBe(leaves.length);
+    expect(batch!.merkleRoot).toBe(computeMerkleRoot(leaves));
   });
 
   it("skips days with nothing to anchor", async () => {

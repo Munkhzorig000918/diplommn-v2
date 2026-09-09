@@ -2,9 +2,14 @@
  * Default fetchers for the stateless verifier. All dependency-free (bare
  * fetch + raw JSON-RPC) so the verifier stays statically hostable.
  */
-import { didWebDocumentUrl, type DidWebDocument } from "@diplommn/did";
+import type { DidWebDocument } from "@diplommn/did";
 import type { Signed, StatusListCredential } from "@diplommn/vc";
 import type { ProofBundleAnchor } from "./verify.js";
+
+/** did:web resolution URL (bare-domain form) — mirror of @diplommn/did. */
+function didWebDocumentUrl(domain: string): string {
+  return `https://${domain}/.well-known/did.json`;
+}
 
 /** keccak("rootOf(uint256)") selector of the immutable AnchorRegistry. */
 const ROOT_OF_SELECTOR = "0xdc299d69";

@@ -133,7 +133,11 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
   const [roles, setRoles] = useState<string[]>(["operator"]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [issued, setIssued] = useState<{ token: string; expiresAt: string } | null>(null);
+  const [issued, setIssued] = useState<{
+    token?: string;
+    expiresAt: string;
+    delivered: boolean;
+  } | null>(null);
 
   function toggleRole(role: string) {
     setRoles((prev) =>
@@ -151,7 +155,7 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
     setError(null);
     setIssued(null);
     try {
-      const res = await api<{ token: string; expiresAt: string }>(
+      const res = await api<{ token?: string; expiresAt: string; delivered: boolean }>(
         "/api/v1/users/invitations",
         {
           method: "POST",
@@ -179,8 +183,14 @@ function InviteForm({ onInvited }: { onInvited: () => void }) {
       {error && <div className="alert alert-error">{error}</div>}
       {issued && (
         <div className="alert alert-success" style={{ wordBreak: "break-all" }}>
-          Урилга үүслээ (7 хоног хүчинтэй). Токеныг найдвартай сувгаар
-          дамжуулна уу: <span className="mono">{issued.token}</span>
+          {issued.delivered
+            ? "Урилга имэйлээр илгээгдлээ (7 хоног хүчинтэй)."
+            : (
+              <>
+                Урилга үүслээ (7 хоног хүчинтэй). Токеныг найдвартай сувгаар
+                дамжуулна уу: <span className="mono">{issued.token}</span>
+              </>
+            )}
         </div>
       )}
       <form className="form-grid" onSubmit={submit}>

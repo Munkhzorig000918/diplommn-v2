@@ -16,6 +16,7 @@ import {
   isRole,
   Role,
 } from "@diplommn/shared";
+import type { Notifier } from "@diplommn/notify";
 import { hashSessionToken, requireRole } from "../../plugins/auth.js";
 
 const InviteBody = z.object({
@@ -33,8 +34,13 @@ const InviteBody = z.object({
 
 const INVITATION_TTL_DAYS = 7;
 
-export function registerUserRoutes(app: FastifyInstance, db: Db): void {
-  /** Platform admin invites staff; the token is delivered out-of-band (email in M2+). */
+export function registerUserRoutes(
+  app: FastifyInstance,
+  db: Db,
+  notifier: Notifier | null = null,
+): void {
+  /** Platform admin invites staff. The token travels by email; with the
+   * console (dev) notifier it is also returned in the response. */
   app.post("/api/v1/users/invitations", async (request, reply) => {
     const admin = requireRole(request, Role.PlatformAdmin);
     const body = InviteBody.parse(request.body);
@@ -70,10 +76,39 @@ export function registerUserRoutes(app: FastifyInstance, db: Db): void {
       return row;
     });
 
-    // Dev convenience: token returned to the admin; production sends by email.
-    return reply
-      .status(201)
-      .send({ invitationId: invitation.id, token, expiresAt });
+    // Email delivery; a failure never rolls back the invitation (the admin
+    // can re-issue). The body carries only the token the recipient owns.
+    let delivered = false;
+    if (notifier) {
+      try {
+        await notifier.sendEmail(
+          body.email.toLowerCase(),
+          "diplom.mn — ажилтны бүртгэлийн урилга",
+          [
+            `Сайн байна уу, ${body.fullName}.`,
+            "",
+            "Таныг diplom.mn-ий ажилтны консолд урьсан байна.",
+            `Бүртгэлээ идэвхжүүлэх код (7 хоног хүчинтэй):`,
+            "",
+            `  ${token}`,
+            "",
+            "Кодыг консолын нэвтрэх хуудасны «Урилга идэвхжүүлэх» хэсэгт оруулж, нууц үг болон баталгаажуулагч аппаа тохируулна уу.",
+          ].join("\n"),
+        );
+        delivered = notifier.kind === "smtp";
+      } catch (err) {
+        request.log.error({ err }, "invitation email delivery failed");
+      }
+    }
+
+    // Dev convenience: without real delivery the token is returned so the
+    // admin can hand it over out-of-band.
+    return reply.status(201).send({
+      invitationId: invitation.id,
+      expiresAt,
+      delivered,
+      ...(delivered ? {} : { token }),
+    });
   });
 
   app.get("/api/v1/users", async (request) => {

@@ -13,8 +13,8 @@
  * without an RPC endpoint. DB tx ≠ chain tx: batch rows exist before any
  * submission and survive chain failures for retry.
  */
-import { and, asc, eq, inArray, isNotNull, lt } from "drizzle-orm";
-import { anchorBatches, credentials, type Db } from "@diplommn/db";
+import { and, asc, desc, eq, inArray, isNotNull, lt } from "drizzle-orm";
+import { anchorBatches, auditEvents, credentials, type Db } from "@diplommn/db";
 import { computeMerkleRoot, normalizeLeafHex } from "@diplommn/shared";
 
 /** Asia/Ulaanbaatar is UTC+8 with no DST (since 2017) — fixed offset. */
@@ -132,14 +132,27 @@ export async function runAnchorBatch(
     const leaves = eligible.map((c) =>
       normalizeLeafHex(c.vcHash ?? c.contentHash!),
     );
-    const merkleRoot = computeMerkleRoot(leaves);
+
+    // The hash-chained audit log is the basis for anchoring (architecture
+    // §8): committing the current chain head to the public root makes the
+    // entire audit history up to this batch tamper-evident. Retention and
+    // cadence details remain open decision #24.
+    const [auditHead] = await tx
+      .select({ eventHash: auditEvents.eventHash })
+      .from(auditEvents)
+      .orderBy(desc(auditEvents.seq))
+      .limit(1);
+    if (auditHead) leaves.push(normalizeLeafHex(auditHead.eventHash));
+
+    const sortedLeaves = [...new Set(leaves)].sort();
+    const merkleRoot = computeMerkleRoot(sortedLeaves);
     const [created] = await tx
       .insert(anchorBatches)
       .values({
         batchId: window.batchId,
         merkleRoot,
-        leafCount: eligible.length,
-        leaves: [...new Set(leaves)].sort(),
+        leafCount: sortedLeaves.length,
+        leaves: sortedLeaves,
         chainId: chain.chainId,
         contractAddress: chain.contractAddress,
       })

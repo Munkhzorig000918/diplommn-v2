@@ -1,0 +1,80 @@
+# CI — typecheck + full test suite against real Postgres/Redis/MinIO.
+# Mirrors the local docker-compose ports so test defaults work unchanged.
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: diplommn
+          POSTGRES_PASSWORD: diplommn_dev
+          POSTGRES_DB: diplommn
+        ports:
+          - 5433:5432
+        options: >-
+          --health-cmd "pg_isready -U diplommn -d diplommn"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6380:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+      minio:
+        # bitnami image starts the server without a command override, which
+        # GitHub service containers cannot provide.
+        image: bitnami/minio:latest
+        env:
+          MINIO_ROOT_USER: diplommn
+          MINIO_ROOT_PASSWORD: diplommn_dev
+        ports:
+          - 9002:9000
+
+    env:
+      DATABASE_URL: postgres://diplommn:diplommn_dev@localhost:5433/diplommn
+      REDIS_URL: redis://localhost:6380
+      S3_ENDPOINT: http://localhost:9002
+      S3_ACCESS_KEY: diplommn
+      S3_SECRET_KEY: diplommn_dev
+      S3_BUCKET: diplommn-artifacts
+      SESSION_SECRET: ci-secret-0123456789abcdef
+      WEB_ORIGIN: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Apply database migrations
+        run: pnpm db:migrate
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test

@@ -82,7 +82,7 @@ export async function buildServer(
   const queues = opts.queues ?? null;
 
   registerAuthRoutes(app, db, config);
-  registerUserRoutes(app, db);
+  registerUserRoutes(app, db, notifier);
   const hemisConfig = hemisClientConfigFromEnv(process.env);
   const hemis = hemisConfig ? new HemisClient(hemisConfig) : null;
   registerCredentialRoutes(app, db, queues, hemis);

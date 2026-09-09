@@ -14,20 +14,30 @@
  * the outcome INDETERMINATE, and a not-yet-anchored credential stays VALID
  * with the anchor check reported as PENDING ("public proof pending").
  * Tampering (signature, hash or root mismatch) is NOT_VALID.
+ *
+ * BROWSER-SAFE: this module and ./primitives.js use only WebCrypto,
+ * DecompressionStream and plain JS — no Node APIs. Imports from other
+ * workspace packages are type-only (erased at runtime), so the verifier
+ * can be bundled for the browser as-is.
  */
 import type { DidWebDocument } from "@diplommn/did";
-import {
-  canonicalJson,
-  sha256Hex,
-  verifyMerkleProof,
-} from "@diplommn/shared";
-import {
-  isRevokedInStatusList,
-  verifyCredential,
-  type DataIntegrityProof,
-  type Signed,
-  type StatusListCredential,
+import type {
+  DataIntegrityProof,
+  Signed,
+  StatusListCredential,
 } from "@diplommn/vc";
+import {
+  base58btcDecode,
+  bitAt,
+  bytesToHex,
+  canonicalJson,
+  hexToBytes,
+  p256PointFromMultikey,
+  sha256,
+  utf8Bytes,
+  verifyMerkleProof,
+  verifyP256,
+} from "./primitives.js";
 
 export interface ProofBundleAnchor {
   batchId: string;
@@ -90,6 +100,48 @@ function keyForMethod(
   return method?.publicKeyMultibase ?? null;
 }
 
+/**
+ * DataIntegrityProof / ecdsa-jcs-2019 verification — mirrors the signing
+ * rules in @diplommn/vc: sign(sha256(canon(proofConfig)) ||
+ * sha256(canon(document))) with P-256, proofValue = multibase base58btc.
+ */
+async function verifySignedDocument(
+  signed: Record<string, unknown>,
+  publicKeyMultibase: string,
+): Promise<{ verified: boolean; reason?: string }> {
+  const { proof, ...document } = signed as {
+    proof?: DataIntegrityProof;
+  } & Record<string, unknown>;
+  if (proof?.type !== "DataIntegrityProof" || proof.cryptosuite !== "ecdsa-jcs-2019") {
+    return { verified: false, reason: "Unsupported proof type/cryptosuite" };
+  }
+
+  let point: Uint8Array;
+  try {
+    point = p256PointFromMultikey(publicKeyMultibase);
+  } catch {
+    return { verified: false, reason: "Malformed issuer public key" };
+  }
+
+  let signature: Uint8Array;
+  try {
+    if (!proof.proofValue?.startsWith("z")) throw new Error("not multibase");
+    signature = base58btcDecode(proof.proofValue.slice(1));
+  } catch {
+    return { verified: false, reason: "Malformed proofValue" };
+  }
+
+  const { proofValue: _dropped, ...proofConfig } = proof;
+  const configHash = await sha256(utf8Bytes(canonicalJson(proofConfig)));
+  const documentHash = await sha256(utf8Bytes(canonicalJson(document)));
+  const data = new Uint8Array(64);
+  data.set(configHash, 0);
+  data.set(documentHash, 32);
+
+  const ok = await verifyP256(point, data, signature);
+  return ok ? { verified: true } : { verified: false, reason: "Signature mismatch" };
+}
+
 export async function verifyProofBundle(
   bundle: ProofBundle,
   opts: VerifierOptions,
@@ -126,7 +178,10 @@ export async function verifyProofBundle(
     );
     return { result: "NOT_VALID", checks, details };
   }
-  const signatureOutcome = verifyCredential(bundle.vc, { publicKeyMultibase });
+  const signatureOutcome = await verifySignedDocument(
+    bundle.vc,
+    publicKeyMultibase,
+  );
   if (!signatureOutcome.verified) {
     details.push(`Signature check failed: ${signatureOutcome.reason}`);
     return { result: "NOT_VALID", checks, details };
@@ -153,16 +208,31 @@ export async function verifyProofBundle(
         (list.proof as DataIntegrityProof).verificationMethod,
       );
       const listSignature = listKey
-        ? verifyCredential(list, { publicKeyMultibase: listKey })
+        ? await verifySignedDocument(
+            list as unknown as Record<string, unknown>,
+            listKey,
+          )
         : { verified: false as const, reason: "unknown verification method" };
       if (!listSignature.verified) {
         checks.revocation = "UNAVAILABLE";
         details.push("Status list signature invalid — treated as unavailable");
-      } else if (isRevokedInStatusList(list, status.statusListIndex)) {
-        checks.revocation = "FAIL";
-        details.push("Credential is revoked");
-        return { result: "REVOKED", checks, details };
       } else {
+        let revoked: boolean;
+        try {
+          revoked = await bitAt(
+            list.credentialSubject.encodedList,
+            Number(status.statusListIndex),
+          );
+        } catch {
+          checks.revocation = "UNAVAILABLE";
+          details.push("Status list unreadable — revocation state unknown");
+          return { result: "INDETERMINATE", checks, details };
+        }
+        if (revoked) {
+          checks.revocation = "FAIL";
+          details.push("Credential is revoked");
+          return { result: "REVOKED", checks, details };
+        }
         checks.revocation = "PASS";
       }
     }
@@ -179,12 +249,19 @@ export async function verifyProofBundle(
     checks.anchor = "UNAVAILABLE";
     details.push("Bundle lacks VC-bound leaf material");
   } else {
-    const salt = Buffer.from(bundle.leaf.salt, "hex");
-    const leaf = sha256Hex(
-      Buffer.concat([salt, Buffer.from(canonicalJson(bundle.vc), "utf8")]),
-    );
+    const salt = hexToBytes(bundle.leaf.salt);
+    const payload = utf8Bytes(canonicalJson(bundle.vc));
+    const preimage = new Uint8Array(salt.length + payload.length);
+    preimage.set(salt, 0);
+    preimage.set(payload, salt.length);
+    const leaf = bytesToHex(await sha256(preimage));
+
     if (
-      !verifyMerkleProof(leaf, bundle.anchor.merkleProof, bundle.anchor.merkleRoot)
+      !(await verifyMerkleProof(
+        leaf,
+        bundle.anchor.merkleProof,
+        bundle.anchor.merkleRoot,
+      ))
     ) {
       details.push("Merkle proof does not connect this credential to the root");
       return { result: "NOT_VALID", checks, details };

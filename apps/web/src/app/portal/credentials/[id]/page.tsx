@@ -49,6 +49,26 @@ export default function HolderCredentialPage() {
   }, [id]);
   useEffect(reload, [reload]);
 
+  async function downloadProofBundle() {
+    try {
+      const bundle = await api<Record<string, unknown>>(
+        `/api/v1/holder/credentials/${id}/proof-bundle`,
+      );
+      const blob = new Blob([JSON.stringify(bundle, null, 2)], {
+        type: "application/json",
+      });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob);
+      a.download = `diplom-mn-proof-${id.slice(0, 8)}.json`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+    } catch {
+      setError(
+        "Нотолгооны багц бэлэн болоогүй байна — гарын үсэг зурагдсаны дараа боломжтой. · The proof bundle is not ready yet (credential not signed).",
+      );
+    }
+  }
+
   async function createShare() {
     setBusy(true);
     try {
@@ -120,21 +140,32 @@ export default function HolderCredentialPage() {
             </a>
           </p>
         )}
-        {c.pdfAvailable ? (
-          <p style={{ marginTop: 8 }}>
+        <div className="btn-row">
+          {c.pdfAvailable ? (
             <a
               className="btn-secondary"
               href={`${API_URL}/api/v1/holder/credentials/${c.id}/pdf`}
             >
               PDF татах · Download PDF
             </a>
-          </p>
-        ) : (
-          <p className="muted" style={{ marginTop: 8 }}>
-            PDF бэлтгэгдэж байна — хэдэн хормын дараа дахин шалгана уу. · The
-            PDF is being prepared; check back shortly.
-          </p>
-        )}
+          ) : (
+            <span className="muted">
+              PDF бэлтгэгдэж байна — хэдэн хормын дараа дахин шалгана уу.
+            </span>
+          )}
+          <button
+            className="btn-secondary"
+            type="button"
+            onClick={downloadProofBundle}
+          >
+            Цахим баримт (VC) татах · Download proof bundle
+          </button>
+        </div>
+        <p className="field-hint">
+          Нотолгооны багц нь гарын үсэгтэй цахим баримт + нийтийн нотолгоог
+          агуулах бөгөөд diplom.mn-ээс хамааралгүйгээр шалгагдана. · The proof
+          bundle verifies independently of diplom.mn.
+        </p>
       </section>
 
       {c.lifecycleStatus === "ISSUED" && (

@@ -1,12 +1,22 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { eq } from "drizzle-orm";
-import { holders } from "@diplommn/db";
-import { Role } from "@diplommn/shared";
+import { randomBytes } from "node:crypto";
+import { anchorBatches, credentials, holders, holderSessions } from "@diplommn/db";
+import {
+  computeContentHash,
+  computeMerkleRoot,
+  normalizeLeafHex,
+  Role,
+  sha256Hex,
+  verifyMerkleProof,
+} from "@diplommn/shared";
 import { createDb } from "@diplommn/db";
 import type { FastifyInstance } from "fastify";
 import type pg from "pg";
 import { loadConfig } from "../src/config.js";
 import { buildServer } from "../src/server.js";
+import { hashSessionToken } from "../src/plugins/auth.js";
+import { HOLDER_COOKIE } from "../src/plugins/holder-auth.js";
 import {
   makeInstitutionAndType,
   makeUser,
@@ -23,6 +33,7 @@ describe("holder portal (integration)", () => {
 
   let regNum: string;
   let certificateFormattedId: string;
+  let issuedCredentialId: string;
 
   beforeAll(async () => {
     process.env.DATABASE_URL ??=
@@ -62,6 +73,7 @@ describe("holder portal (integration)", () => {
       },
     });
     const credentialId = created.json().id as string;
+    issuedCredentialId = credentialId;
     await app.inject({
       method: "POST",
       url: `/api/v1/credentials/${credentialId}/submit`,
@@ -243,5 +255,82 @@ describe("holder portal (integration)", () => {
     });
     expect(res.statusCode).toBe(200);
     expect(res.json().share.status).toBe("NOT_FOUND");
+  });
+
+  it("serves an offline proof bundle once the VC and anchor exist", async () => {
+    // Session created directly (OTP flow is covered above; repeated logins
+    // trip the OTP rate limiter by design).
+    const [holderRow] = await db
+      .select({ id: holders.id })
+      .from(holders)
+      .where(eq(holders.registrationNumber, regNum));
+    const token = randomBytes(32).toString("hex");
+    await db.insert(holderSessions).values({
+      holderId: holderRow!.id,
+      tokenHash: hashSessionToken(token),
+      expiresAt: new Date(Date.now() + 3_600_000),
+    });
+    const cookie = `${HOLDER_COOKIE}=${token}`;
+
+    // Before signing: no bundle.
+    const early = await app.inject({
+      method: "GET",
+      url: `/api/v1/holder/credentials/${issuedCredentialId}/proof-bundle`,
+      headers: { cookie },
+    });
+    expect(early.statusCode).toBe(409);
+
+    // Simulate the signing + anchoring workers directly in the store.
+    const [row] = await db
+      .select({ contentSalt: credentials.contentSalt })
+      .from(credentials)
+      .where(eq(credentials.id, issuedCredentialId));
+    const fakeVc = {
+      "@context": ["https://www.w3.org/ns/credentials/v2"],
+      issuer: "did:web:diplom.mn",
+      proof: { type: "DataIntegrityProof", proofValue: "ztest" },
+    };
+    const { hash: vcHash } = computeContentHash(fakeVc, row!.contentSalt!);
+    const sibling = sha256Hex("proof-bundle-sibling");
+    const leaves = [normalizeLeafHex(vcHash), normalizeLeafHex(sibling)].sort();
+    const [batch] = await db
+      .insert(anchorBatches)
+      .values({
+        batchId: BigInt(90_000_000 + Math.floor(Math.random() * 1_000_000)),
+        merkleRoot: computeMerkleRoot(leaves),
+        leafCount: leaves.length,
+        leaves,
+        chainId: 31337,
+        contractAddress: "0xproofbundletest0000000000000000000000000",
+        status: "CONFIRMED",
+      })
+      .returning({ id: anchorBatches.id, merkleRoot: anchorBatches.merkleRoot });
+    await db
+      .update(credentials)
+      .set({
+        vc: fakeVc,
+        vcHash,
+        vcSignedAt: new Date(),
+        vcKeyId: "issuer-1",
+        anchorBatchId: batch!.id,
+        anchorStatus: "CONFIRMED",
+      })
+      .where(eq(credentials.id, issuedCredentialId));
+
+    const res = await app.inject({
+      method: "GET",
+      url: `/api/v1/holder/credentials/${issuedCredentialId}/proof-bundle`,
+      headers: { cookie },
+    });
+    expect(res.statusCode).toBe(200);
+    const bundle = res.json();
+    expect(bundle.vc.issuer).toBe("did:web:diplom.mn");
+    expect(bundle.leaf.source).toBe("vc");
+    expect(bundle.leaf.salt).toBe(row!.contentSalt);
+    expect(bundle.anchor.merkleRoot).toBe(batch!.merkleRoot);
+    // The included Merkle proof must actually connect the leaf to the root.
+    expect(
+      verifyMerkleProof(vcHash, bundle.anchor.merkleProof, batch!.merkleRoot),
+    ).toBe(true);
   });
 });
