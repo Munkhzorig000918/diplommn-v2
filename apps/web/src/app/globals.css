@@ -584,3 +584,65 @@ h1 {
   font-size: 13px;
   line-height: 1.6;
 }
+
+/* ---- Trust / Help pages ---- */
+.trust-h2 { font-size: 18px; margin-bottom: var(--space-4); }
+.trust-h3 { font-size: 14px; margin-bottom: var(--space-2); }
+.trust-chain {
+  display: flex;
+  gap: var(--space-3);
+  align-items: stretch;
+  flex-wrap: wrap;
+}
+.trust-node {
+  flex: 1 1 180px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-4);
+  background: var(--color-background);
+}
+.trust-node p { font-size: 13px; color: var(--color-text-secondary); margin-top: var(--space-1); }
+.trust-arrow {
+  align-self: center;
+  color: var(--color-primary);
+  font-size: 20px;
+  font-weight: 700;
+}
+.trust-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-6);
+}
+.trust-list {
+  list-style: disc inside;
+  font-size: 14px;
+  color: var(--color-text-secondary);
+  display: grid;
+  gap: var(--space-2);
+}
+.trust-steps {
+  list-style: decimal inside;
+  display: grid;
+  gap: var(--space-3);
+  font-size: 14px;
+}
+.trust-steps li { color: var(--color-text-secondary); }
+.trust-steps strong { color: var(--color-text-primary); }
+
+.faq-item {
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  margin-bottom: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+}
+.faq-item summary {
+  font-weight: 600;
+  cursor: pointer;
+  min-height: 28px;
+}
+.faq-item p {
+  margin-top: var(--space-3);
+  color: var(--color-text-secondary);
+  font-size: 14px;
+}

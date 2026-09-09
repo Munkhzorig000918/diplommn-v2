@@ -39,6 +39,8 @@ export default function RootLayout({
             <nav className="site-nav" aria-label="Үндсэн цэс">
               <a href="/">Нүүр</a>
               <a href="/verify">Баталгаажуулах</a>
+              <a href="/trust">Итгэл ба Нууцлал</a>
+              <a href="/help">Тусламж</a>
               <a href="/portal/login">Нэвтрэх</a>
             </nav>
           </div>
@@ -61,8 +63,9 @@ export default function RootLayout({
             </div>
             <div>
               <h3>Тусламж</h3>
-              <a href="/verify">Түгээмэл асуулт</a>
-              <a href="/status/1">Статус жагсаалт</a>
+              <a href="/help">Түгээмэл асуулт</a>
+              <a href="/trust">Итгэл ба Нууцлал</a>
+              <a href="/system-status">Төлөв байдал</a>
             </div>
             <div>
               <h3>Холбоо барих</h3>
