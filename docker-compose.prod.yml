@@ -53,7 +53,7 @@ services:
   migrate:
     build:
       context: .
-      target: base
+      target: backend
     command: ["pnpm", "db:migrate"]
     env_file: .env.production
     depends_on:

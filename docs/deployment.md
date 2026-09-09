@@ -73,8 +73,15 @@ curl -s https://diplom.mn/.well-known/did.json | head
 ```bash
 cd /opt/diplommn-v2
 git pull
-docker compose -f docker-compose.prod.yml up -d --build   # migrate дахин ажиллана
+BUILDX_NO_DEFAULT_ATTESTATIONS=1 \
+  docker compose -f docker-compose.prod.yml up -d --build   # migrate дахин ажиллана
 ```
+
+Image-ууд app тус бүрээр давхаргалагдсан тул **зөвхөн өөрчлөгдсөн service л
+дахин асна**: web-ийн засвар api/worker-ийг хөндөхгүй (идэвхтэй anchor/sign
+job-ууд огт тасалдахгүй). `BUILDX_NO_DEFAULT_ATTESTATIONS=1` нь build бүрд
+шинэ ID үүсгэдэг attestation-ийг унтрааж, өөрчлөгдөөгүй image-ийг таньдаг
+болгоно — сервер дээр `/etc/environment`-д нэг удаа бичиж болно.
 
 ## Production hardening checklist (NDC-д гарахын өмнө)
 
