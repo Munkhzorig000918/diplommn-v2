@@ -19,6 +19,7 @@ and the invariants every change must respect.
 | `packages/db` | `@diplommn/db` | Drizzle schema, migrations, seed |
 | `packages/shared` | `@diplommn/shared` | Status enums, certificate-ID utils, canonical hashing, error taxonomy |
 | `packages/contracts` | `@diplommn/contracts` | Solidity AnchorRegistry (daily Merkle root anchor, Phase 0) — Hardhat 3 + viem |
+| `packages/did` | `@diplommn/did` | `did:web:diplom.mn` document builder, Multikey encoding, issuer key history (Phase 0) |
 
 ## Getting started
 
@@ -51,6 +52,20 @@ off-chain (open decision #11). Deployment records land in
 
 Current testnet deployment (Sepolia, chainId 11155111):
 [`0x189E57eA448D04D684D195BBd9642162042F2441`](https://sepolia.etherscan.io/address/0x189E57eA448D04D684D195BBd9642162042F2441)
+
+## Issuer DID (Phase 0)
+
+`packages/did` derives the `did:web:diplom.mn` document from an issuer key
+history (ACTIVE keys sign, RETIRED keys stay resolvable for old credentials,
+REVOKED keys disappear — valid-at-time verification). Production keys live
+only in KMS/HSM; the builders take the KMS *public* key. For local work:
+
+```bash
+pnpm --filter @diplommn/did generate:dev   # dev P-256 key + did.json in packages/did/dev/ (gitignored)
+```
+
+In production, publish the generated document at
+`https://diplom.mn/.well-known/did.json` alongside the key-history file.
 
 ## Security posture (MVP)
 
