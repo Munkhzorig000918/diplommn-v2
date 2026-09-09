@@ -11,7 +11,7 @@
   },
   "scripts": {
     "build": "hardhat compile",
-    "typecheck": "tsc --noEmit",
+    "typecheck": "hardhat compile && tsc --noEmit",
     "test": "hardhat test",
     "deploy:local": "hardhat run scripts/deploy.ts",
     "deploy:sepolia": "hardhat run scripts/deploy.ts --network sepolia"
