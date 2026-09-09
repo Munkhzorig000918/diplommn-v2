@@ -1,8 +1,17 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
-import { api, API_URL, ApiError, STATUS_BADGE_CLASS, STATUS_LABELS } from "@/lib/api";
+import {
+  api,
+  API_URL,
+  ApiError,
+  CASE_TYPE_LABELS,
+  SOURCE_VALIDATION_BADGE,
+  SOURCE_VALIDATION_LABELS,
+  STATUS_BADGE_CLASS,
+  STATUS_LABELS,
+} from "@/lib/api";
 import { staffHasRole, useStaff } from "../../layout";
 
 interface Detail {
@@ -28,6 +37,20 @@ interface Detail {
       registrationNumber: string;
     } | null;
   };
+  sourceValidation: {
+    status: string | null;
+    checkedAt: string;
+    outcome?: string;
+    endpoint?: string;
+    degreeNumber?: string;
+    record?: Record<string, unknown>;
+    match?: {
+      matched: boolean;
+      keysChecked: string[];
+      diffs: { key: string; submitted: string; hemis: string }[];
+    };
+    error?: string;
+  } | null;
   events: {
     eventType: string;
     fromStatus: string | null;
@@ -85,12 +108,38 @@ export default function ConsoleCredentialPage() {
     }
   }
 
+  async function validateSource() {
+    setBusy(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const res = await api<{ status: string; outcome: string }>(
+        `/api/v1/credentials/${id}/validate-source`,
+        { method: "POST" },
+      );
+      setNotice(
+        `HEMIS шалгалт: ${SOURCE_VALIDATION_LABELS[res.status] ?? res.status}`,
+      );
+      reload();
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "HEMIS шалгалт амжилтгүй боллоо",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (error && !data) return <div className="alert alert-error">{error}</div>;
   if (!data) return <p className="muted">Ачаалж байна… · Loading…</p>;
   const c = data.credential;
   const isOperator = staffHasRole(staff, "operator");
   const isApprover = staffHasRole(staff, "approver");
+  const isLifecycleAdmin = staffHasRole(staff, "lifecycle_admin");
   const isOwnSubmission = c.submittedBy !== null && c.submittedBy === staff?.id;
+  const preIssuance = ["DRAFT", "PENDING_APPROVAL", "RETURNED"].includes(
+    c.lifecycleStatus,
+  );
 
   return (
     <>
@@ -149,12 +198,26 @@ export default function ConsoleCredentialPage() {
             Ноорог цуцлах · Cancel draft
           </button>
         )}
+        {isOperator && preIssuance && (
+          <button className="btn-secondary" disabled={busy} onClick={validateSource}>
+            HEMIS шалгах · Validate against HEMIS
+          </button>
+        )}
         {c.pdfObjectKey && (
           <a className="btn-secondary" href={`${API_URL}/api/v1/credentials/${c.id}/pdf`}>
             PDF татах · Download PDF
           </a>
         )}
       </div>
+
+      <HemisEvidencePanel
+        status={c.sourceValidationStatus}
+        evidence={data.sourceValidation}
+      />
+
+      {isLifecycleAdmin && c.lifecycleStatus === "ISSUED" && (
+        <LifecycleCaseForm credentialId={c.id} />
+      )}
 
       <section className="card" style={{ marginTop: 24 }}>
         <h2 style={{ fontSize: 18, marginBottom: 12 }}>Эзэмшигч ба мэдээлэл</h2>
@@ -226,5 +289,194 @@ function FragmentRow({ label, value }: { label: string; value: string }) {
       <dt>{labels[label] ?? label}</dt>
       <dd>{value}</dd>
     </>
+  );
+}
+
+const HEMIS_FIELD_LABELS: Record<string, string> = {
+  degreeNumber: "Дипломын дугаар",
+  primaryIdentifierNumber: "Регистрийн дугаар",
+  firstName: "Нэр",
+  lastName: "Овог",
+  institutionName: "Байгууллага",
+  educationLevelName: "Боловсролын зэрэг",
+  educationFieldCode: "Мэргэжлийн код",
+  educationFieldName: "Мэргэжил",
+  totalGpa: "Голч дүн",
+  conferYearName: "Төгссөн хичээлийн жил",
+};
+
+/** APR evidence panel — HEMIS match result with per-field diffs. */
+function HemisEvidencePanel({
+  status,
+  evidence,
+}: {
+  status: string;
+  evidence: Detail["sourceValidation"];
+}) {
+  return (
+    <section className="card" style={{ marginTop: 24 }}>
+      <h2 style={{ fontSize: 18, marginBottom: 12 }}>
+        HEMIS баталгаажуулалт{" "}
+        <span className={`badge ${SOURCE_VALIDATION_BADGE[status] ?? "badge-neutral"}`}>
+          {SOURCE_VALIDATION_LABELS[status] ?? status}
+        </span>
+      </h2>
+      {!evidence ? (
+        <p className="muted">
+          HEMIS-тэй тулгаагүй байна. Илгээхийн өмнө «HEMIS шалгах» товчоор
+          шалгана уу. · Not yet validated against HEMIS.
+        </p>
+      ) : (
+        <>
+          <p className="muted">
+            Шалгасан: {new Date(evidence.checkedAt).toLocaleString("mn-MN")}
+            {evidence.endpoint ? ` · endpoint: ${evidence.endpoint}` : ""}
+            {evidence.degreeNumber ? ` · дугаар: ${evidence.degreeNumber}` : ""}
+          </p>
+          {evidence.error && (
+            <div className="alert alert-error">{evidence.error}</div>
+          )}
+          {evidence.match && evidence.match.diffs.length > 0 && (
+            <div className="table-wrap" style={{ marginTop: 12 }}>
+              <table className="data-table">
+                <thead>
+                  <tr>
+                    <th>Талбар</th>
+                    <th>Мэдүүлсэн утга</th>
+                    <th>HEMIS утга</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {evidence.match.diffs.map((d) => (
+                    <tr key={d.key}>
+                      <td>{HEMIS_FIELD_LABELS[d.key] ?? d.key}</td>
+                      <td className="mono">{d.submitted || "—"}</td>
+                      <td className="mono">{d.hemis || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {evidence.record && (
+            <dl className="claims-list" style={{ marginTop: 12 }}>
+              {Object.entries(evidence.record)
+                .filter(([, v]) => v !== null && v !== "")
+                .map(([k, v]) => (
+                  <FragmentRow
+                    key={k}
+                    label={HEMIS_FIELD_LABELS[k] ?? k}
+                    value={String(v)}
+                  />
+                ))}
+            </dl>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
+const REASON_CODES: { value: string; label: string }[] = [
+  { value: "DATA_ERROR", label: "Мэдээллийн алдаа · Data error" },
+  { value: "FRAUD", label: "Хуурамч бүрдүүлэлт · Fraud" },
+  { value: "INSTITUTION_REQUEST", label: "Байгууллагын хүсэлт · Institution request" },
+  { value: "HOLDER_REQUEST", label: "Эзэмшигчийн хүсэлт · Holder request" },
+  { value: "OTHER", label: "Бусад · Other" },
+];
+
+/** LIFE-001 — open a revoke/correct/reissue case (dual control decides it). */
+function LifecycleCaseForm({ credentialId }: { credentialId: string }) {
+  const router = useRouter();
+  const [caseType, setCaseType] = useState("REVOKE");
+  const [reasonCode, setReasonCode] = useState("DATA_ERROR");
+  const [reasonDetail, setReasonDetail] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (reasonDetail.trim().length < 10) {
+      setError("Дэлгэрэнгүй шалтгаанаа 10-аас доошгүй тэмдэгтээр бичнэ үү.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api("/api/v1/lifecycle-cases", {
+        method: "POST",
+        body: JSON.stringify({
+          credentialId,
+          caseType,
+          reasonCode,
+          reasonDetail: reasonDetail.trim(),
+        }),
+      });
+      router.push("/console/lifecycle");
+    } catch (err) {
+      setError(
+        err instanceof ApiError ? err.message : "Кейс үүсгэж чадсангүй",
+      );
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section className="card" style={{ marginTop: 24 }}>
+      <h2 style={{ fontSize: 18, marginBottom: 12 }}>
+        Lifecycle кейс нээх · Open lifecycle case
+      </h2>
+      <p className="muted" style={{ marginBottom: 12 }}>
+        Кейс нээгдмэгц өөр админ шийднэ (хос хяналт). REVOKE батлагдмагц баримт
+        цуцлагдана; CORRECT/REISSUE нь солих ноорог үүсгэнэ.
+      </p>
+      {error && <div className="alert alert-error">{error}</div>}
+      <form className="form-grid" onSubmit={submit}>
+        <div>
+          <label htmlFor="caseType">Төрөл · Type</label>
+          <select
+            id="caseType"
+            value={caseType}
+            onChange={(e) => setCaseType(e.target.value)}
+          >
+            {Object.entries(CASE_TYPE_LABELS).map(([value, label]) => (
+              <option key={value} value={value}>
+                {label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="reasonCode">Шалтгааны код · Reason code</label>
+          <select
+            id="reasonCode"
+            value={reasonCode}
+            onChange={(e) => setReasonCode(e.target.value)}
+          >
+            {REASON_CODES.map((r) => (
+              <option key={r.value} value={r.value}>
+                {r.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div>
+          <label htmlFor="reasonDetail">Дэлгэрэнгүй шалтгаан · Detail</label>
+          <textarea
+            id="reasonDetail"
+            rows={3}
+            value={reasonDetail}
+            onChange={(e) => setReasonDetail(e.target.value)}
+            placeholder="Шийдвэр гаргагчид зориулж нөхцөл байдлыг тодорхой бичнэ…"
+          />
+        </div>
+        <div>
+          <button className="btn-danger" type="submit" disabled={busy}>
+            Кейс нээх · Open case
+          </button>
+        </div>
+      </form>
+    </section>
   );
 }

@@ -62,12 +62,28 @@ export default function ConsoleLayout({
           <Link href="/console" className={pathname === "/console" ? "active" : ""}>
             Ажлын дараалал · Work queue
           </Link>
+          {staffHasRole(user, "operator", "approver", "lifecycle_admin", "platform_admin", "auditor") && (
+            <Link
+              href="/console/credentials"
+              className={pathname === "/console/credentials" ? "active" : ""}
+            >
+              Баримтууд · Credentials
+            </Link>
+          )}
           {staffHasRole(user, "operator") && (
             <Link
               href="/console/credentials/new"
               className={pathname === "/console/credentials/new" ? "active" : ""}
             >
               Шинэ олголт · New issuance
+            </Link>
+          )}
+          {staffHasRole(user, "lifecycle_admin", "approver") && (
+            <Link
+              href="/console/lifecycle"
+              className={pathname.startsWith("/console/lifecycle") ? "active" : ""}
+            >
+              Lifecycle кейс
             </Link>
           )}
           {staffHasRole(user, "operator", "approver", "platform_admin") && (

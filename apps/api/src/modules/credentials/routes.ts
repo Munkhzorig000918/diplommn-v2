@@ -341,6 +341,35 @@ export function registerCredentialRoutes(
       .where(eq(credentialEvents.credentialId, id))
       .orderBy(desc(credentialEvents.createdAt));
 
+    // Latest HEMIS validation evidence for the approval evidence panel.
+    // The raw upstream payload stays server-side; the panel gets the
+    // normalized record + per-field diffs.
+    const [validationEvent] = await db
+      .select({
+        toStatus: credentialEvents.toStatus,
+        details: credentialEvents.details,
+        createdAt: credentialEvents.createdAt,
+      })
+      .from(credentialEvents)
+      .where(
+        and(
+          eq(credentialEvents.credentialId, id),
+          eq(credentialEvents.eventType, "source-validation"),
+        ),
+      )
+      .orderBy(desc(credentialEvents.createdAt))
+      .limit(1);
+    let sourceValidation: Record<string, unknown> | null = null;
+    if (validationEvent) {
+      const { raw: _raw, ...evidence } =
+        (validationEvent.details ?? {}) as Record<string, unknown>;
+      sourceValidation = {
+        status: validationEvent.toStatus,
+        checkedAt: validationEvent.createdAt,
+        ...evidence,
+      };
+    }
+
     // Never expose the content salt (anchoring confidentiality).
     const { contentSalt: _salt, ...safe } = credential;
     return {
@@ -355,6 +384,7 @@ export function registerCredentialRoutes(
             }
           : null,
       },
+      sourceValidation,
       events,
     };
   });

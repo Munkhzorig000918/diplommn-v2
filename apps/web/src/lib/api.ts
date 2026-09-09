@@ -62,6 +62,48 @@ export const STATUS_LABELS: Record<string, string> = {
   CANCELLED: "Цуцалсан ноорог · Cancelled",
 };
 
+export const SOURCE_VALIDATION_LABELS: Record<string, string> = {
+  NOT_CHECKED: "Шалгаагүй",
+  CHECKING: "Шалгаж байна",
+  MATCHED: "Тохирсон",
+  MISMATCH: "Зөрүүтэй",
+  ATTESTATION_INVALID: "Аттестат буруу",
+  UNAVAILABLE: "Шалгах боломжгүй",
+  STALE: "Хуучирсан",
+};
+
+export const SOURCE_VALIDATION_BADGE: Record<string, string> = {
+  NOT_CHECKED: "badge-neutral",
+  CHECKING: "badge-info",
+  MATCHED: "badge-success",
+  MISMATCH: "badge-error",
+  ATTESTATION_INVALID: "badge-error",
+  UNAVAILABLE: "badge-warning",
+  STALE: "badge-warning",
+};
+
+export const CASE_TYPE_LABELS: Record<string, string> = {
+  REVOKE: "Цуцлах · Revoke",
+  CORRECT: "Засварлах · Correct",
+  REISSUE: "Дахин олгох · Reissue",
+};
+
+export const CASE_STATUS_LABELS: Record<string, string> = {
+  OPEN: "Нээлттэй · Open",
+  APPROVED: "Батлагдсан · Approved",
+  REJECTED: "Татгалзсан · Rejected",
+  COMPLETED: "Дууссан · Completed",
+  CANCELLED: "Цуцалсан · Cancelled",
+};
+
+export const CASE_STATUS_BADGE: Record<string, string> = {
+  OPEN: "badge-warning",
+  APPROVED: "badge-info",
+  REJECTED: "badge-error",
+  COMPLETED: "badge-success",
+  CANCELLED: "badge-neutral",
+};
+
 export const STATUS_BADGE_CLASS: Record<string, string> = {
   DRAFT: "badge-neutral",
   PENDING_APPROVAL: "badge-warning",
