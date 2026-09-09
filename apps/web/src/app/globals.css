@@ -490,3 +490,97 @@ h1 {
   border: 1px solid var(--color-border);
   background: #000;
 }
+
+/* ---- PUB-001 landing + site chrome ---- */
+.site-header-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  max-width: 1200px;
+  margin: 0 auto;
+  flex-wrap: wrap;
+}
+.site-nav {
+  display: flex;
+  gap: var(--space-4);
+}
+.site-nav a {
+  color: rgba(255, 255, 255, 0.85);
+  text-decoration: none;
+  font-size: 14px;
+  font-weight: 600;
+  padding: var(--space-2) var(--space-2);
+  border-radius: var(--radius-sm);
+}
+.site-nav a:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.hero {
+  padding: var(--space-8) 0 var(--space-6);
+}
+.hero-title {
+  font-size: 32px;
+  line-height: 40px;
+  font-weight: 700;
+  margin-bottom: var(--space-3);
+  max-width: 640px;
+}
+
+.feature-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+.feature-card {
+  background: var(--color-surface);
+  border: 1px solid var(--color-divider);
+  border-radius: var(--radius-md);
+  padding: var(--space-5);
+}
+.feature-title {
+  font-size: 15px;
+  font-weight: 600;
+  margin: var(--space-2) 0;
+}
+.feature-text {
+  font-size: 13px;
+  color: var(--color-text-secondary);
+}
+
+.site-footer {
+  background: var(--color-surface-inverse);
+  color: rgba(255, 255, 255, 0.85);
+  padding: var(--space-8) var(--space-6);
+  margin-top: var(--space-10);
+}
+.site-footer-grid {
+  max-width: 1200px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: var(--space-6);
+}
+.site-footer h3 {
+  font-size: 14px;
+  color: #fff;
+  margin-bottom: var(--space-3);
+}
+.site-footer a {
+  display: block;
+  color: rgba(255, 255, 255, 0.72);
+  text-decoration: none;
+  font-size: 13px;
+  margin-bottom: var(--space-2);
+}
+.site-footer a:hover {
+  color: #fff;
+}
+.footer-muted {
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 13px;
+  line-height: 1.6;
+}

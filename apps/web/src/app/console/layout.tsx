@@ -94,6 +94,22 @@ export default function ConsoleLayout({
               Импорт · Imports
             </Link>
           )}
+          {staffHasRole(user, "auditor", "platform_admin", "lifecycle_admin") && (
+            <Link
+              href="/console/audit"
+              className={pathname === "/console/audit" ? "active" : ""}
+            >
+              Аудит · Audit
+            </Link>
+          )}
+          {staffHasRole(user, "platform_admin", "auditor") && (
+            <Link
+              href="/console/users"
+              className={pathname === "/console/users" ? "active" : ""}
+            >
+              Хэрэглэгчид · Users
+            </Link>
+          )}
           {staffHasRole(user, "platform_admin", "auditor") && (
             <Link
               href="/console/ops"
