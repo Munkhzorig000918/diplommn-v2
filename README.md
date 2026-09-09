@@ -18,6 +18,7 @@ and the invariants every change must respect.
 | `apps/worker` | `@diplommn/worker` | BullMQ worker — PDF/QR/notifications (M4) |
 | `packages/db` | `@diplommn/db` | Drizzle schema, migrations, seed |
 | `packages/shared` | `@diplommn/shared` | Status enums, certificate-ID utils, canonical hashing, error taxonomy |
+| `packages/contracts` | `@diplommn/contracts` | Solidity AnchorRegistry (daily Merkle root anchor, Phase 0) — Hardhat 3 + viem |
 
 ## Getting started
 
@@ -32,6 +33,24 @@ pnpm dev:web                    # http://localhost:3000
 ```
 
 Run tests: `pnpm test` · Typecheck: `pnpm typecheck`
+
+## Contracts (Phase 0)
+
+```bash
+pnpm --filter @diplommn/contracts build           # hardhat compile
+pnpm --filter @diplommn/contracts test            # contract tests (in-process EVM)
+pnpm --filter @diplommn/contracts deploy:local    # smoke-test deploy
+pnpm --filter @diplommn/contracts deploy:sepolia  # needs funded key in packages/contracts/.env
+```
+
+`AnchorRegistry` is deliberately minimal and immutable: one fixed anchorer
+address, `anchorRoot(batchId, root)` once per batch, hashes only — no PII,
+no upgrade path, no owner. Batch numbering / daily-cutoff policy stays
+off-chain (open decision #11). Deployment records land in
+`packages/contracts/deployments/`.
+
+Current testnet deployment (Sepolia, chainId 11155111):
+[`0x189E57eA448D04D684D195BBd9642162042F2441`](https://sepolia.etherscan.io/address/0x189E57eA448D04D684D195BBd9642162042F2441)
 
 ## Security posture (MVP)
 

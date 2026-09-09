@@ -1,0 +1,10 @@
+{
+  "contract": "AnchorRegistry",
+  "network": "sepolia",
+  "chainId": 11155111,
+  "address": "0x189E57eA448D04D684D195BBd9642162042F2441",
+  "anchorer": "0xd95b3d564ab88BB7EbdE5F1f4c7624aD9C464006",
+  "deployer": "0xd95b3d564ab88BB7EbdE5F1f4c7624aD9C464006",
+  "txHash": "0xfa9bee33304e398c228aa5ab48a8b06e885f31b2e67a9be32f0715b5d2d00284",
+  "blockNumber": 11666143
+}
