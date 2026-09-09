@@ -60,9 +60,8 @@ jobs:
             sleep 2
           done
 
+      # pnpm version comes from package.json "packageManager".
       - uses: pnpm/action-setup@v4
-        with:
-          version: 11
 
       - uses: actions/setup-node@v4
         with:
