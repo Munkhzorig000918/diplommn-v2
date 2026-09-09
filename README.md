@@ -21,7 +21,8 @@ and the invariants every change must respect.
 | `packages/contracts` | `@diplommn/contracts` | Solidity AnchorRegistry (daily Merkle root anchor, Phase 0) — Hardhat 3 + viem |
 | `packages/did` | `@diplommn/did` | `did:web:diplom.mn` document builder, Multikey encoding, issuer key history (Phase 0) |
 | `packages/hemis` | `@diplommn/hemis` | HEMIS adapter — v1-evidenced API client, claim matching, validation evidence (Phase 1) |
-| `packages/vc` | `@diplommn/vc` | W3C VC 2.0 — diploma claim schema 1.0, DataIntegrityProof (ecdsa-jcs-2019) sign/verify (Phase 1) |
+| `packages/vc` | `@diplommn/vc` | W3C VC 2.0 — diploma claim schema 1.0, DataIntegrityProof (ecdsa-jcs-2019) sign/verify, Bitstring Status List (Phases 1–2) |
+| `packages/verifier` | `@diplommn/verifier` | Open stateless verifier — signature + revocation + Merkle/anchor checks → VALID/REVOKED/NOT_VALID/INDETERMINATE (Phase 2) |
 
 ## Getting started
 
@@ -68,6 +69,23 @@ pnpm --filter @diplommn/did generate:dev   # dev P-256 key + did.json in package
 
 In production, publish the generated document at
 `https://diplom.mn/.well-known/did.json` alongside the key-history file.
+
+## Phase 2 (in progress)
+
+- **Bitstring Status List**: the worker publishes a signed
+  BitstringStatusListCredential (revocation purpose, 131,072-slot herd
+  privacy floor) after every revocation and daily at 00:10 UB; the public
+  API serves it at `GET /status/:listId` (cacheable, CDN-mirrorable).
+- **Anchor leaf correction**: with VCs in place the anchored leaf is the
+  salted hash of the *signed VC* (architecture §2); claims-hash remains the
+  fallback for kinds without a VC schema (labeled per gap #29).
+- **Proof bundle**: `GET /api/v1/holder/credentials/:id/proof-bundle`
+  returns the signed VC, this credential's leaf salt and the Merkle proof —
+  everything an independent verifier needs offline.
+- **Open verifier** (`packages/verifier`): stateless, dependency-light
+  (fetch + raw JSON-RPC), injectable fetchers for did:web, status list and
+  AnchorRegistry `rootOf`. Outages are never fraud (INDETERMINATE), unanchored
+  credentials are VALID with "public proof pending", tampering is NOT_VALID.
 
 ## Phase 1 (in progress)
 

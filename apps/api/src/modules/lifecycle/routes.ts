@@ -32,7 +32,11 @@ const IdParams = z.object({ id: z.string().uuid() });
  * Lifecycle cases: revoke / correct / reissue are never immediate row actions
  * (design doc §9.7). Dual control — the requester can never be the decider.
  */
-export function registerLifecycleRoutes(app: FastifyInstance, db: Db): void {
+export function registerLifecycleRoutes(
+  app: FastifyInstance,
+  db: Db,
+  queues: import("../../queues.js").JobQueues | null = null,
+): void {
   app.post("/api/v1/lifecycle-cases", async (request, reply) => {
     const user = requireRole(request, Role.LifecycleAdmin);
     const body = CreateCaseBody.parse(request.body);
@@ -93,6 +97,7 @@ export function registerLifecycleRoutes(app: FastifyInstance, db: Db): void {
     const user = requireRole(request, Role.LifecycleAdmin, Role.Approver);
     const { id } = IdParams.parse(request.params);
     const { note } = DecisionBody.parse(request.body ?? {});
+    let revoked = false;
 
     await db.transaction(async (tx) => {
       const rows = await tx
@@ -140,6 +145,7 @@ export function registerLifecycleRoutes(app: FastifyInstance, db: Db): void {
           `${lifecycleCase.reasonCode}: ${lifecycleCase.reasonDetail}`,
           id,
         );
+        revoked = true;
         return;
       }
 
@@ -199,6 +205,16 @@ export function registerLifecycleRoutes(app: FastifyInstance, db: Db): void {
         },
       });
     });
+
+    // After commit: refresh the published status list so the revocation
+    // bit goes live. Failure is recoverable (daily refresh + ops re-run).
+    if (revoked && queues) {
+      try {
+        await queues.enqueuePublishStatusList();
+      } catch (err) {
+        request.log.error({ err, caseId: id }, "failed to enqueue status list refresh");
+      }
+    }
 
     return { ok: true };
   });

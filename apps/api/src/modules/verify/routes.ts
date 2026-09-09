@@ -7,6 +7,7 @@ import {
   credentialTypes,
   holders,
   institutions,
+  statusLists,
   type Db,
 } from "@diplommn/db";
 import {
@@ -38,6 +39,30 @@ export function registerVerifyRoutes(
   db: Db,
   config: ApiConfig,
 ): void {
+  /**
+   * Public Bitstring Status List (Phase 2). Serves the worker-signed status
+   * list credential; no auth, cacheable, CDN-mirrorable (stateless tier).
+   */
+  app.get("/status/:listId", async (request, reply) => {
+    const { listId } = z
+      .object({ listId: z.coerce.number().int().min(1).max(1_000_000) })
+      .parse(request.params);
+    const [row] = await db
+      .select({
+        credential: statusLists.credential,
+        sha256: statusLists.sha256,
+        generatedAt: statusLists.generatedAt,
+      })
+      .from(statusLists)
+      .where(eq(statusLists.listId, listId))
+      .limit(1);
+    if (!row) throw AppError.notFound("Status list not found");
+    reply
+      .header("cache-control", "public, max-age=300")
+      .header("x-status-list-sha256", row.sha256)
+      .type("application/json");
+    return row.credential;
+  });
   app.get(
     "/api/v1/verify/:certificateId",
     { config: { rateLimit: { max: 30, timeWindow: "1 minute" } } },

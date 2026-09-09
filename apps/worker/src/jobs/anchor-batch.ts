@@ -109,7 +109,11 @@ export async function runAnchorBatch(
     if (existing) return existing;
 
     const eligible = await tx
-      .select({ id: credentials.id, contentHash: credentials.contentHash })
+      .select({
+        id: credentials.id,
+        contentHash: credentials.contentHash,
+        vcHash: credentials.vcHash,
+      })
       .from(credentials)
       .where(
         and(
@@ -122,7 +126,12 @@ export async function runAnchorBatch(
       .for("update");
     if (eligible.length === 0) return null;
 
-    const leaves = eligible.map((c) => normalizeLeafHex(c.contentHash!));
+    // Leaf = salted hash of the signed VC when one exists (architecture §2);
+    // claims-hash fallback covers kinds without a VC schema yet (gap #29
+    // labels these "database-verified" rather than independently verifiable).
+    const leaves = eligible.map((c) =>
+      normalizeLeafHex(c.vcHash ?? c.contentHash!),
+    );
     const merkleRoot = computeMerkleRoot(leaves);
     const [created] = await tx
       .insert(anchorBatches)

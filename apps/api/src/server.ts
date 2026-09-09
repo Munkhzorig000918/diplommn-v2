@@ -85,7 +85,7 @@ export async function buildServer(
   const hemisConfig = hemisClientConfigFromEnv(process.env);
   const hemis = hemisConfig ? new HemisClient(hemisConfig) : null;
   registerCredentialRoutes(app, db, queues, hemis);
-  registerLifecycleRoutes(app, db);
+  registerLifecycleRoutes(app, db, queues);
   registerVerifyRoutes(app, db, config);
   registerAuditRoutes(app, db);
   registerHolderRoutes(app, db, config, otpDelivery);

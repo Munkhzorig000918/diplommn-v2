@@ -19,6 +19,7 @@ import {
   JOB_ANCHOR_BATCH,
   JOB_GENERATE_PDF,
   JOB_NOTIFY_ISSUED,
+  JOB_PUBLISH_STATUS_LIST,
   JOB_SIGN_VC,
   QUEUE_ANCHORS,
   QUEUE_ARTIFACTS,
@@ -34,6 +35,7 @@ import { generatePdfArtifact } from "./jobs/generate-pdf.js";
 import { notifyIssued } from "./jobs/notify-issued.js";
 import { runAnchorBatch } from "./jobs/anchor-batch.js";
 import { signVcForCredential, type VcSigningContext } from "./jobs/sign-vc.js";
+import { publishStatusList } from "./jobs/publish-status-list.js";
 import { anchorChainConfigFromEnv, createAnchorChain } from "./chain.js";
 import { readFileSync } from "node:fs";
 import { createLocalP256Signer } from "@diplommn/vc";
@@ -116,7 +118,7 @@ const notificationsWorker = new Worker<NotifyIssuedJobData>(
 // VC signing (Phase 1) is opt-in: enabled when a signing key is configured.
 // Dev uses the local P-256 JWK from packages/did; production replaces this
 // with a KMS/HSM-backed signer on an isolated host.
-let signingWorker: Worker<SignVcJobData> | null = null;
+let signingWorker: Worker | null = null;
 const signingKeyFile = process.env.VC_SIGNING_KEY_FILE;
 if (signingKeyFile) {
   const privateJwk = JSON.parse(readFileSync(signingKeyFile, "utf8")) as {
@@ -131,17 +133,34 @@ if (signingKeyFile) {
     statusListCredential:
       process.env.VC_STATUS_LIST_URL ?? `${baseUrl}/status/1`,
   };
-  signingWorker = new Worker<SignVcJobData>(
+  const signingQueue = new Queue(QUEUE_SIGNING, {
+    connection,
+    defaultJobOptions: DEFAULT_JOB_OPTIONS,
+  });
+  // Daily status-list freshness refresh at 00:10 Ulaanbaatar (gap #14's
+  // freshness policy is open; a daily floor keeps validFrom recent).
+  await signingQueue.upsertJobScheduler(
+    "daily-status-list",
+    { pattern: "10 0 * * *", tz: "Asia/Ulaanbaatar" },
+    { name: JOB_PUBLISH_STATUS_LIST, data: {} },
+  );
+  await signingQueue.close();
+
+  signingWorker = new Worker(
     QUEUE_SIGNING,
     async (job) => {
+      if (job.name === JOB_PUBLISH_STATUS_LIST) {
+        const result = await publishStatusList(db, signingContext);
+        console.log(
+          `[worker] status list ${result.listId} published (${result.revokedCount} revoked, sha256 ${result.sha256.slice(0, 12)}…)`,
+        );
+        return result;
+      }
       if (job.name !== JOB_SIGN_VC) return;
-      const result = await signVcForCredential(
-        db,
-        signingContext,
-        job.data.credentialId,
-      );
+      const { credentialId } = job.data as SignVcJobData;
+      const result = await signVcForCredential(db, signingContext, credentialId);
       console.log(
-        `[worker] sign-vc ${job.data.credentialId}: ` +
+        `[worker] sign-vc ${credentialId}: ` +
           (result.signed
             ? `signed (status index ${result.statusListIndex})`
             : `skipped (${result.skipped})`),

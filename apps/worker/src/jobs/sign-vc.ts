@@ -17,6 +17,7 @@ import {
   institutions,
   type Db,
 } from "@diplommn/db";
+import { computeContentHash } from "@diplommn/shared";
 import {
   DiplomaSubjectSchema,
   buildDiplomaCredential,
@@ -59,6 +60,7 @@ export async function signVcForCredential(
       submittedSnapshot: credentials.submittedSnapshot,
       issuedAt: credentials.issuedAt,
       vc: credentials.vc,
+      contentSalt: credentials.contentSalt,
       statusListIndex: credentials.statusListIndex,
       kind: credentialTypes.kind,
       holderLastName: holders.lastName,
@@ -172,12 +174,19 @@ export async function signVcForCredential(
   });
   const signed = await signCredential(unsigned, ctx.signer);
 
+  // Salted hash over the signed VC — the anchor leaf (architecture §2).
+  if (!row.contentSalt) {
+    throw new Error(`Credential ${credentialId} has no content salt`);
+  }
+  const { hash: vcHash } = computeContentHash(signed, row.contentSalt);
+
   await db
     .update(credentials)
     .set({
       vc: signed,
       vcSignedAt: new Date(),
       vcKeyId: ctx.signer.keyId,
+      vcHash,
       updatedAt: new Date(),
     })
     .where(eq(credentials.id, credentialId));

@@ -12,9 +12,15 @@ export const JOB_GENERATE_PDF = "generate-pdf";
 export const JOB_NOTIFY_ISSUED = "notify-issued";
 export const JOB_ANCHOR_BATCH = "anchor-batch";
 export const JOB_SIGN_VC = "sign-vc";
+export const JOB_PUBLISH_STATUS_LIST = "publish-status-list";
 
 export interface SignVcJobData {
   credentialId: string;
+}
+
+export interface PublishStatusListJobData {
+  /** Status list id; the platform currently publishes list 1. */
+  listId?: number;
 }
 
 export interface GeneratePdfJobData {

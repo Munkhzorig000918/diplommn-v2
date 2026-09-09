@@ -3,11 +3,13 @@ import { Redis } from "ioredis";
 import {
   DEFAULT_JOB_OPTIONS,
   JOB_GENERATE_PDF,
+  JOB_PUBLISH_STATUS_LIST,
   JOB_SIGN_VC,
   QUEUE_ARTIFACTS,
   QUEUE_NOTIFICATIONS,
   QUEUE_SIGNING,
   type GeneratePdfJobData,
+  type PublishStatusListJobData,
   type SignVcJobData,
 } from "@diplommn/shared";
 
@@ -23,6 +25,7 @@ export interface JobQueues {
   connection: Redis;
   enqueuePdf(credentialId: string, opts?: { force?: boolean }): Promise<void>;
   enqueueSignVc(credentialId: string): Promise<void>;
+  enqueuePublishStatusList(): Promise<void>;
   close(): Promise<void>;
 }
 
@@ -69,6 +72,14 @@ export function createQueues(redisUrl?: string): JobQueues {
         JOB_SIGN_VC,
         { credentialId } satisfies SignVcJobData,
         { jobId: `sign-${credentialId}` },
+      );
+    },
+    async enqueuePublishStatusList() {
+      // Time-bucketed jobId dedupes bursts of revocations into one refresh.
+      await signing.add(
+        JOB_PUBLISH_STATUS_LIST,
+        {} satisfies PublishStatusListJobData,
+        { jobId: `statuslist-${Math.floor(Date.now() / 60_000)}` },
       );
     },
     async close() {

@@ -3,6 +3,7 @@ import type { FastifyInstance } from "fastify";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { z } from "zod";
 import {
+  anchorBatches,
   appendAuditEvent,
   credentials,
   credentialTypes,
@@ -18,6 +19,7 @@ import {
   AuditAction,
   AuditResource,
   AuditResult,
+  computeMerkleProof,
   formatCertificateId,
   maskRegistrationNumber,
   ShareStatus,
@@ -288,6 +290,76 @@ export function registerHolderRoutes(
           ? formatCertificateId(r.certificateId)
           : null,
       })),
+    };
+  });
+
+  /**
+   * Offline proof bundle (Phase 2): everything an independent verifier
+   * needs without contacting diplom.mn — the signed VC, the salt that
+   * unlocks THIS credential's anchor leaf (discloses nothing about other
+   * leaves), and the Merkle proof against the anchored daily root. The
+   * status list URL travels inside the VC's credentialStatus.
+   */
+  app.get("/api/v1/holder/credentials/:id/proof-bundle", async (request) => {
+    const holder = requireHolder(request);
+    const { id } = IdParams.parse(request.params);
+
+    const rows = await db
+      .select()
+      .from(credentials)
+      .where(and(eq(credentials.id, id), eq(credentials.holderId, holder.id)))
+      .limit(1);
+    const credential = rows[0];
+    if (
+      !credential ||
+      !HOLDER_VISIBLE_STATUSES.includes(
+        credential.lifecycleStatus as (typeof HOLDER_VISIBLE_STATUSES)[number],
+      )
+    ) {
+      throw AppError.notFound("Credential not found");
+    }
+    if (!credential.vc) {
+      throw AppError.conflict("Credential has no signed VC yet");
+    }
+
+    const leaf = credential.vcHash ?? credential.contentHash;
+    let anchor: Record<string, unknown> | null = null;
+    if (credential.anchorBatchId && leaf) {
+      const [batch] = await db
+        .select()
+        .from(anchorBatches)
+        .where(eq(anchorBatches.id, credential.anchorBatchId))
+        .limit(1);
+      if (batch) {
+        try {
+          anchor = {
+            batchId: batch.batchId.toString(),
+            merkleRoot: batch.merkleRoot,
+            merkleProof: computeMerkleProof(batch.leaves as string[], leaf),
+            chainId: batch.chainId,
+            contractAddress: batch.contractAddress,
+            txHash: batch.txHash,
+            blockNumber: batch.blockNumber?.toString() ?? null,
+            status: batch.status,
+          };
+        } catch (err) {
+          // Leaf missing from its own batch — an integrity signal worth
+          // surfacing in logs; the bundle degrades to signature+status only.
+          request.log.error({ err, credentialId: id }, "proof-bundle leaf not in batch");
+        }
+      }
+    }
+
+    return {
+      bundleVersion: "1.0",
+      vc: credential.vc,
+      // Salted-leaf preimage material for independent recomputation.
+      leaf: {
+        salt: credential.contentSalt,
+        source: credential.vcHash ? "vc" : "claims",
+        hashAlg: credential.contentHashAlg,
+      },
+      anchor,
     };
   });
 
