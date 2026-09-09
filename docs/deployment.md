@@ -18,6 +18,31 @@
 - `secrets/` — түлхүүрийн түүх + (KMS хүртэл) гарын үсгийн түлхүүр (git-д орохгүй)
 - `scripts/backup.sh` — өдөр тутмын Postgres + MinIO нөөшлөлт
 
+## AWS байршуулалтын топологи
+
+Сонгосон стратеги: staging + prod хоёулаа AWS-тэй, prod дээр NDC нэмэгдэнэ.
+**Хуулийн хил зурааг мартаж болохгүй:**
+
+| Орчин | Хаана юу |
+|---|---|
+| **Staging** | Бүгд AWS (нэг EC2) — зөвхөн тестийн өгөгдөл тул зөвшөөрөгдөнө |
+| **Production** | **PII-тэй бүх зүйл NDC-д** (Postgres, API, worker, MinIO, түлхүүр) — энэ нь нэмэлт биш, гол байршил (ХМХ хууль 2022, архитектур §17). AWS нь зөвхөн нууцгүй давхаргад: public web/verify (CloudFront/S3 эсвэл жижиг EC2), status list mirror, did.json mirror, нээлттэй verifier-ийн статик хостинг |
+
+### Staging EC2 checklist
+
+1. Region: **ap-northeast-2 (Сөүл)** — УБ-д хамгийн ойр
+2. Instance: **t4g.large** (2 vCPU Graviton/ARM, 8GB) эсвэл x86 бол t3.large;
+   диск **gp3 60–80GB**
+3. AMI: **Ubuntu Server 24.04 LTS** (arm64/x86 нь instance-даа таарна)
+4. Key pair-ээ үүсгэж татаж авах
+5. **User data** талбарт `deploy/cloud-init.yml`-ийн агуулгыг бүтнээр нь хуулж
+   тавих (Docker, firewall, хавтаснууд автоматаар бэлдэгдэнэ)
+6. Security group: inbound **22** (зөвхөн өөрийн IP-ээс байвал сайн), **80**, **443**
+7. **Elastic IP** гаргаж холбох (restart хийхэд IP тогтвортой)
+8. DNS: `staging.diplom.mn` A бичлэг → Elastic IP
+9. SSH-ээр орж доорх "Шинэ сервер дээр босгох" хэсгийг үргэлжлүүлнэ
+   (cloud-init аль хэдийн Docker суулгаж, `/opt/diplommn-v2`-ийг бэлдсэн байна)
+
 ## Шинэ сервер дээр босгох (staging/VPS)
 
 Шаардлага: Ubuntu 22.04+, Docker + compose plugin, 80/443 нээлттэй, DNS A бичлэг домэйн руу.
